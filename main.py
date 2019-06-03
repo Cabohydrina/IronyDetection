@@ -22,7 +22,7 @@ max_epoch=50
 log_path = './log/task{}/'.format(task)
 exp_path = './exp/task{}/'.format(task)
 result_path = './results/task{}/'.format(task)
-restore_path = './exp/task{}/epoch_{}'.format(task, 28)
+restore_path = './exp/task{}/epoch_{}'.format(task, 38)
 max_len =50
 emb_size=728
 inference= True
@@ -150,6 +150,7 @@ targets = tf.placeholder(tf.int64, shape=[batch_size], name='targets')
 input_data_len = tf.placeholder(tf.int32, shape=[batch_size], name='input_data_len')
 mask = tf.sequence_mask(input_data_len, maxlen=max_len)
 fc_feature = tf.placeholder(tf.float32, shape=[batch_size, 149], name='fc_feature')
+imbalance_weight = tf.convert_to_tensor([1.9907674552798615,2.7555910543130993,12.23404255319149, 18.852459016393443], dtype=tf.float32)
 # forward
 with tf.name_scope('fw_rnn'), tf.variable_scope('fw_rnn'):
     lstm_fw_cell_list = [tf.contrib.rnn.LSTMCell(rnn_size) for _ in range(layer_size)]
@@ -191,8 +192,10 @@ with tf.name_scope('fc'),tf.variable_scope('fc'):
 
 logits  =tf.matmul(tf.concat([final_outputs, fc_feature], axis=1), fc_w)+fc_b
 prob = tf.nn.softmax(logits)
-
-total_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits = logits, labels=targets))
+if task=='B':
+    total_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=targets)*tf.nn.embedding_lookup(imbalance_weight, targets))
+else:
+    total_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits = logits, labels=targets))
 optimizer = tf.train.AdamOptimizer(learning_rate)
 train_op = optimizer.minimize(total_loss)
 accuracy = tf.reduce_mean(tf.cast( tf.equal(targets, tf.argmax(prob, axis=1)),tf.float32))
