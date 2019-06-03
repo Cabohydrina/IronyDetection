@@ -16,14 +16,16 @@ if task=='A':
 else:
     n_classes=4
 learning_rate = 1e-4
-batch_size =16
+# batch_size =16
+batch_size=784
 max_epoch=50
 log_path = './log/task{}/'.format(task)
 exp_path = './exp/task{}/'.format(task)
-restore_path = './exp/task{}/epoch_{}'.format(task, 12)
+result_path = './results/task{}/'.format(task)
+restore_path = './exp/task{}/epoch_{}'.format(task, 28)
 max_len =50
 emb_size=728
-inference= False
+inference= True
 
 ##rnn
 rnn_size=100
@@ -216,7 +218,16 @@ with tf.Session(config=tf_config) as sess:
         sess.run(tf.global_variables_initializer())
 
     if inference:
-        pass
+        for sequences, labels, lengths, features in tqdm(test_loader, desc='test'):
+            # print('input data',sequences,labels, lengths)
+            results = sess.run([predictions], feed_dict={
+                input_data: sequences,
+                input_data_len: lengths.reshape(-1),
+                output_keep_prob: 1.0,
+                fc_feature: features
+            })
+            np.savetxt(X=results, fname=result_path+'result')
+
 
     else:
         for epoch in range(max_epoch):
