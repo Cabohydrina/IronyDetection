@@ -15,18 +15,19 @@ if task=='A':
     n_classes=2
 else:
     n_classes=4
-learning_rate = 1e-4
-# batch_size =16
-batch_size=784
+learning_rate = 1e-5
 max_epoch=50
 log_path = './log/task{}/'.format(task)
 exp_path = './exp/task{}/'.format(task)
 result_path = './results/task{}/'.format(task)
-restore_path = './exp/task{}/epoch_{}'.format(task, 38)
+restore_path = './exp/task{}/epoch_{}'.format(task, 24)#A:48 B:34
 max_len =50
 emb_size=728
 inference= True
-
+if inference:
+    batch_size=784
+else:
+    batch_size = 16
 ##rnn
 rnn_size=100
 layer_size=2
@@ -150,7 +151,8 @@ targets = tf.placeholder(tf.int64, shape=[batch_size], name='targets')
 input_data_len = tf.placeholder(tf.int32, shape=[batch_size], name='input_data_len')
 mask = tf.sequence_mask(input_data_len, maxlen=max_len)
 fc_feature = tf.placeholder(tf.float32, shape=[batch_size, 149], name='fc_feature')
-imbalance_weight = tf.convert_to_tensor([1.9907674552798615,2.7555910543130993,12.23404255319149, 18.852459016393443], dtype=tf.float32)
+# imbalance_weight = tf.convert_to_tensor([1.9907674552798615,2.7555910543130993,12.23404255319149, 18.852459016393443], dtype=tf.float32)
+imbalance_weight = tf.convert_to_tensor([1,1,2,3], dtype=tf.float32)
 # forward
 with tf.name_scope('fw_rnn'), tf.variable_scope('fw_rnn'):
     lstm_fw_cell_list = [tf.contrib.rnn.LSTMCell(rnn_size) for _ in range(layer_size)]
@@ -159,7 +161,7 @@ with tf.name_scope('fw_rnn'), tf.variable_scope('fw_rnn'):
 #backward
 with tf.name_scope('bw_rnn'), tf.variable_scope('bw_rnn'):
     lstm_bw_cell_list = [tf.contrib.rnn.LSTMCell(rnn_size) for _ in range(layer_size)]
-    lstm_bw_cell_m = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.MultiRNNCell(lstm_fw_cell_list), output_keep_prob=output_keep_prob)
+    lstm_bw_cell_m = tf.contrib.rnn.DropoutWrapper(tf.contrib.rnn.MultiRNNCell(lstm_bw_cell_list), output_keep_prob=output_keep_prob)
 
 
 with tf.name_scope('bi_rnn'), tf.variable_scope('bi_rnn'):
@@ -204,7 +206,7 @@ predictions = tf.argmax(prob, axis=1)
 # tf.summary.scalar('accuracy', accuracy)
 # merged = tf.summary.merge_all()
 
-saver = tf.train.Saver(max_to_keep=20)
+saver = tf.train.Saver(max_to_keep=100)
 
 ####################################################
 
@@ -214,11 +216,15 @@ train_writer = tf.summary.FileWriter(log_path+'train')
 valid_writer = tf.summary.FileWriter(log_path+'valid')
 
 
+
 with tf.Session(config=tf_config) as sess:
     if os.path.exists(os.path.join(exp_path, 'checkpoint')):
         saver.restore(sess, restore_path)
     else:
         sess.run(tf.global_variables_initializer())
+    graph_writer = tf.summary.FileWriter(log_path + 'graph')
+    graph_writer.add_graph(sess.graph)
+
 
     if inference:
         for sequences, labels, lengths, features in tqdm(test_loader, desc='test'):
